@@ -16,3 +16,4 @@
 	Memory Limits   -  7 G
 
 Note : In the above mentioned configuration build will take 4 mins & 15 sec on gopaddle.
+Reference - https://docs.microsoft.com/en-us/dotnet/architecture/containerized-lifecycle/design-develop-containerized-apps/build-aspnet-core-applications-linux-containers-aks-kubernetes
