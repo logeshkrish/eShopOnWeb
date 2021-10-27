@@ -1,6 +1,6 @@
 ### ENVs 
 
-	export ASPNETCORE_ENVIRONMENT=Docker
+	export ASPNETCORE_ENVIRONMENT=Development
 	export ASPNETCORE_URLS=http://+:5000
 
 ### NodePool size in GKE cluster
