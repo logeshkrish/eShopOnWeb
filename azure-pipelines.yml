@@ -20,7 +20,7 @@ variables:
 
 steps:
 - script: |
-    curl -H 'Authorization: Bearer $(apiToken)' -X POST -d '{"serviceID":"$(serviceID)","releaseID":"rel9ca949ceecgc0e42cbe8008eedb7d80f1f2","distributionID":"dis6da49651eea97k4befea60be93d2989ea3c"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/build > buildinfo.json
+    curl -H 'Authorization: Bearer $(apiToken)' -X POST -d '{"serviceID":"$(serviceID)","releaseID":"$(releaseID)","distributionID":"$(distributionID)"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/build > buildinfo.json
     cat buildinfo.json
     buildid="$(cat buildinfo.json | jq -r '.buildID')"
     buildVersion="$(cat buildinfo.json | jq -r '.buildVersion')"
