@@ -8,12 +8,18 @@ trigger:
 
 pool:
   vmImage: ubuntu-latest
+  
+variables:
+- apiToken: eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJkZW1vQGdvcGFkZGxlLmlvIiwiZXhwIjoxNjY3MDM4ODk1LCJqdGkiOiI2OWI0YTdiMGcyOTYxZzQ4OGRnYTM0YWdjZGIxZWM0NDc4NzkiLCJpYXQiOjE2MzU1MDI4OTUsImlzcyI6ImdvcGFkZGxlIiwic3ViIjoie1widXNlcklEXCI6XCJ1c3JhZTJkMjlhNWU1MWNlZTRiOTZlOWY5NGVlYWRhNDAxM2U4MmRcIn0ifQ.W6inB2yQcPtWnTNyDQxUuhJQQphA-MPEYEqQnPnAJBxdqbusmidkdFDs31CbPJuPKK__ZS3SPmum-lwJ0HOSgzhkIbLmlh4loDm3Vcvfwp5p7f3WdmvgAKoxqAO3sJVbejktVGhevyitgOSYoEdnRfudhf0eo7hgJFF41ZB0rxTenjn5ztCNrTBBYfVd2kEBZYmjw6XVHH8tISG7inIQ5vb2nl5gJ15qx6uxyFFTiMgUexIFvtl2qOU1TMIfSn1qHSYqymd4FZnVx9ef3qJhgAbdbPGqpA-3fDFpNMNC4oS-n0yOlRFtTAIEZVXE1wRB6YXiQLQwfaEmsua0BH01_A
+  serviceID: svcead6db1a1c4f31c40a6ca8f1c1730fe14cb58
+  serviceGroupID: sgb24e9d2esg4561sg4184sg8596sgcb162a5aaefd
+  applicationID: appsaacdb74fc1ea1c4ce7cbbdbcb8efed8df871
+  projectID: prj4a4df5e7ef3abe4b6deae21e8673b089c951
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    curl -H 'Authorization: token  $(apiToken)' -X POST -d '{"serviceID":"$(serviceID)","releaseID":"rel9ca949ceecgc0e42cbe8008eedb7d80f1f2","distributionID":"dis6da49651eea97k4befea60be93d2989ea3c"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/build > buildinfo.json
+    buildid="$(cat buildinfo.json | jq -r '.buildID')"
+    buildVersion="$(cat buildinfo.json | jq -r '.buildVersion')"
+    for (( ; ; )); do   curl -H 'Authorization: token  $(apiToken)' https://portal.gopaddle.io/gateway/v1/$(projectID)/build/$buildid > buildstatusinfo.json;   buildstatus="$(cat buildstatusinfo.json | jq -r '.status')";   echo "$buildstatus";   if [[ $buildstatus == "Failed" ]];   then     echo "build failed";     break;   elif [[ $buildstatus == "Created" ]];   then     echo "build Created successfully";     echo "trigger rolling update";     curl -H 'Authorization: token  $(apiToken)' -X PUT -d '{"serviceGroups":[{"services":[{"id":"$(serviceID)","serviceVersion":"draft","releaseConfig":{"buildID":"$buildid","version":"$buildVersion"}}],"id":"$(serviceGroupID)","name":"mern-social","version":"draft","description":"dGVzdA=="}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/application/$(applicationID) > rollingupdateinfo.json;     rollingUpdateMessage="$(cat rollingupdateinfo.json | jq -r '.message')";     cat rollingupdateinfo.json;     echo "$rollingUpdateMessage";     break;   elif [[ $buildstatus == "Creating" ]];   then     echo "build creating...";     continue;   else     echo "unknown status build dropped";     break;   fi; done
+  displayName: 'Build And Rolling Update'
