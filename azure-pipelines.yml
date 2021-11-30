@@ -17,15 +17,26 @@ variables:
   projectID: prj4a4df5e7ef3abe4b6deae21e8673b089c951
   releaseID: rel5aa1b5b3e148de40fbea555e39ca6a827c5
   distributionID: discba9b840e77aae4970e9e65e733e2f1cb64
+  endPoint: portal.gopaddle.io
 
 steps:
 - script: |
-    curl -H 'Authorization: Bearer $(apiToken)' -X POST -d '{"serviceID":"$(containerID)","releaseID":"$(releaseID)","distributionID":"$(distributionID)"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/build > buildinfo.json
-    cat buildinfo.json
-    buildid="$(cat buildinfo.json | jq -r '.buildID')"
-    buildVersion="$(cat buildinfo.json | jq -r '.buildVersion')"
-    buildStatusCount = true
+    # Trigger the build as soon as the code is committed
+    curl -H 'Authorization: Bearer $(apiToken)' -X POST -d '{"serviceID":"$(containerID)","releaseID":"$(releaseID)","distributionID":"$(distributionID)"}' https://$endPoint/gateway/v1/$(projectID)/build > buildInfo.json
+    
+    # Get build ID and commit message from the build information
+    buildID="$(cat buildInfo.json | jq -r '.buildID')"
+    buildVersion="$(cat buildInfo.json | jq -r '.buildVersion')"
+    buildInProgress=true
     commitMessage=`echo "$(Build.SourceVersionMessage)" | base64`
-    for (( ; ; )); do   curl -H 'Authorization: Bearer $(apiToken)' https://portal.gopaddle.io/gateway/v1/$(projectID)/build/$buildid > buildstatusinfo.json;   buildstatus="$(cat buildstatusinfo.json | jq -r '.status')";   echo "$buildstatus";   if [[ $buildstatus == "Failed" ]];   then     echo "build failed";     break;   elif [[ $buildstatus == "Created" ]];   then     echo "build Created successfully";     echo "trigger rolling update";     curl -H 'Authorization: Bearer $(apiToken)' -X PUT -d '{"serviceGroups":[{"services":[{"id":"$(containerID)","serviceVersion":"draft","releaseConfig":{"buildID":"'"$buildid"'","version":"'"$buildVersion"'"}}],"id":"$(serviceID)","name":"eshoponweb","version":"draft","description":"'"$commitMessage"'"}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}' https://portal.gopaddle.io/gateway/v1/$(projectID)/application/$(applicationID) > rollingupdateinfo.json;     rollingUpdateMessage="$(cat rollingupdateinfo.json | jq -r '.message')";     cat rollingupdateinfo.json;     echo "$rollingUpdateMessage";     break;   elif [[ $buildstatus == "Creating" ]];   then     if [[ $buildStatusCount == true ]];     then       echo "build creating...";       buildStatusCount = false;     fi;     continue;   else     echo "unknown status build dropped";     break;   fi; done
-    echo '{"serviceGroups":[{"services":[{"id":"$(containerID)","serviceVersion":"draft","releaseConfig":{"buildID":"'"$buildid"'","version":"'"$buildVersion"'"}}],"id":"$(serviceID)","name":"eshoponweb","version":"draft","description":"'"$commitMessage"'"}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}'
-  displayName: 'Build And Rolling Update'
+    
+    # Wait until build is complete
+    for (( ; ; ));do   curl -H 'Authorization: Bearer $(apiToken)' https://$endPoint/gateway/v1/$(projectID)/build/$buildID > buildStatusInfo.json;   buildStatus="$(cat buildStatusInfo.json | jq -r '.status')";    echo "$buildStatus";   if [[ $buildStatus == "Failed" ]];   then     echo "build failed";     break;   elif [[ $buildStatus == "Created" ]];   then     echo "build Created successfully";          break;   elif [[ $buildStatus == "Creating" ]];   then     if [[ $buildInProgress == true ]];     then       echo "build creating...";       buildInProgress=false;     fi;     continue;   else     echo "unknown status build dropped";     break;   fi; done
+  displayName: 'Triggering Build'
+    
+steps:
+- script: |
+    # Trigger Rolling Update
+    if [[ $buildStatus == "Created" ]];   then curl -H 'Authorization: Bearer $(apiToken)' -X PUT -d '{"serviceGroups":[{"services":[{"id":"$(containerID)","serviceVersion":"draft","releaseConfig":{"buildID":"'"$buildID"'","version":"'"$buildVersion"'"}}],"id":"$(serviceID)","name":"eshoponweb","version":"draft","description":"'"$commitMessage"'"}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}' https://$endPoint/gateway/v1/$(projectID)/application/$(applicationID) > rollingupdateinfo.json;     rollingUpdateMessage="$(cat rollingupdateinfo.json | jq -r '.message')";     echo "$rollingUpdateMessage"; fi;
+    echo '{"serviceGroups":[{"services":[{"id":"$(containerID)","serviceVersion":"draft","releaseConfig":{"buildID":"'"$buildID"'","version":"'"$buildVersion"'"}}],"id":"$(serviceID)","name":"eshoponweb","version":"draft","description":"'"$commitMessage"'"}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}'
+  displayName: 'Creating Rolling Update'
