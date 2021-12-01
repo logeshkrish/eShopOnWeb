@@ -34,7 +34,6 @@ steps:
     for (( ; ; ));do   curl -H 'Authorization: Bearer $(apiToken)' https://$endPoint/gateway/v1/$(projectID)/build/$buildID > buildStatusInfo.json;   buildStatus="$(cat buildStatusInfo.json | jq -r '.status')";    echo "$buildStatus";   if [[ $buildStatus == "Failed" ]];   then     echo "build failed";     break;   elif [[ $buildStatus == "Created" ]];   then     echo "build Created successfully";          break;   elif [[ $buildStatus == "Creating" ]];   then     if [[ $buildInProgress == true ]];     then       echo "build creating...";       buildInProgress=false;     fi;     continue;   else     echo "unknown status build dropped";     break;   fi; done
   displayName: 'Triggering Build'
     
-steps:
 - script: |
     # Trigger Rolling Update
     if [[ $buildStatus == "Created" ]];   then curl -H 'Authorization: Bearer $(apiToken)' -X PUT -d '{"serviceGroups":[{"services":[{"id":"$(containerID)","serviceVersion":"draft","releaseConfig":{"buildID":"'"$buildID"'","version":"'"$buildVersion"'"}}],"id":"$(serviceID)","name":"eshoponweb","version":"draft","description":"'"$commitMessage"'"}],"deploymentTemplateVersion":"draft","updateType":"buildUpdate"}' https://$endPoint/gateway/v1/$(projectID)/application/$(applicationID) > rollingupdateinfo.json;     rollingUpdateMessage="$(cat rollingupdateinfo.json | jq -r '.message')";     echo "$rollingUpdateMessage"; fi;
